@@ -9,6 +9,7 @@ sys.path.insert(0, ROOT)
 from scraper.rekrute import scrape_rekrute
 from scraper.emploima import scrape_emploima
 from database.db_handler import save_offers, load_offers, count_offers
+from analysis.skills import extract_skills
 
 DB_PATH = os.path.join(ROOT, "data", "jobs.db")
 
@@ -184,9 +185,6 @@ with col_status:
     last = pd.to_datetime(df["date_scraped"]).max()
     st.markdown(f'<div style="padding-top:0.65rem;font-size:0.78rem;color:#AAA;">Dernière mise à jour : {last.strftime("%d %b %Y · %H:%M")}</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-
-# CHARTS
 GOLD  = "#8B6914"
 DARK  = "#1C1C1C"
 FONT  = "Geist, sans-serif"
@@ -194,6 +192,32 @@ LAYOUT = dict(paper_bgcolor="white", plot_bgcolor="white",
               font=dict(family=FONT, color="#444", size=11),
               margin=dict(l=8, r=16, t=16, b=8), height=290)
 
+st.markdown('<div class="section-label">Compétences les plus demandées</div>', unsafe_allow_html=True)
+
+skills_count = extract_skills(df)
+skills_df = pd.DataFrame(list(skills_count.items()), columns=["Compétence", "Offres"])
+skills_df = skills_df[skills_df["Offres"] > 0].sort_values("Offres", ascending=False)
+
+if not skills_df.empty:
+    fig = go.Figure(go.Bar(
+        x=skills_df["Offres"],
+        y=skills_df["Compétence"],
+        orientation="h",
+        marker=dict(color="#8B6914"),
+        hovertemplate="<b>%{y}</b><br>%{x} offres<extra></extra>"
+    ))
+    fig.update_layout(**LAYOUT,
+        yaxis=dict(autorange="reversed", tickfont=dict(size=11, color="#333"), gridcolor="rgba(0,0,0,0)"),
+        xaxis=dict(tickfont=dict(size=10, color="#777"), gridcolor="rgba(0,0,0,0.06)", zeroline=False)
+    )
+    fig.update_layout(height=500)
+    st.markdown('<div class="chart-wrap"><div class="chart-title">Top compétences · toutes offres</div>', unsafe_allow_html=True)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# CHARTS
 st.markdown('<div class="section-label">Analyse du marché</div>', unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
