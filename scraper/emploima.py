@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import time
 import random
 
-BASE_URL = "https://www.rekrute.com"
+BASE_URL = "https://www.emploi.ma"
 
 HEADERS = {
     "User-Agent": (
@@ -24,7 +24,6 @@ EXCLUDE_KEYWORDS = [
     "stagiaire", "stage", "intern", "commercial", "call center"
 ]
 
-
 def is_data_related(text):
     text = text.lower()
     if any(ex in text for ex in EXCLUDE_KEYWORDS):
@@ -32,7 +31,7 @@ def is_data_related(text):
     return any(kw in text for kw in INCLUDE_KEYWORDS)
 
 
-def extract_li_value(ul_tag, keyword):
+def extract_li_strong(ul_tag, keyword):
     if not ul_tag:
         return ""
     for li in ul_tag.find_all("li"):
@@ -43,50 +42,38 @@ def extract_li_value(ul_tag, keyword):
             return value
     return ""
 
-
 def parse_offer(li_tag):
-    title_tag = li_tag.find("a", class_="titreJob")
+    h3 = li_tag.find("h3")
+    if not h3:
+        return None
+    title_tag = h3.find("a")
+
     if not title_tag:
         return None
 
     full_title = title_tag.get_text(strip=True)
     url = BASE_URL + title_tag["href"]
 
-    if "|" in full_title:
-        parts = full_title.split("|")
-        title = parts[0].strip()
-        location = parts[1].strip().replace("(Maroc)", "").strip()
-    else:
-        title = full_title.strip()
-        location = ""
+    title = full_title.strip() 
+    
 
-    if not is_data_related(title):
-        return None
+    company_tag = li_tag.find("a", class_="card-job-company")
+    company = company_tag.get_text(strip=True) if company_tag else ""
 
-    company = ""
-    img_tag = li_tag.find("img", class_="photo")
-    if img_tag:
-        company = img_tag.get("alt", "").strip()
+    desc_div = li_tag.find("div", class_="card-job-description")
+    description = desc_div.find("p").get_text(strip=True) if desc_div else ""
 
-    description = ""
-    info_divs = li_tag.find_all("div", class_="info")
-    for div in info_divs:
-        span = div.find("span")
-        if span:
-            description = span.get_text(strip=True)
-            break
-
-    date_posted = ""
-    date_em = li_tag.find("em", class_="date")
-    if date_em:
-        spans = date_em.find_all("span")
-        if spans:
-            date_posted = spans[0].get_text(strip=True)
+    time_tag = li_tag.find("time")
+    date_posted = time_tag["datetime"] if time_tag else ""
 
     ul_tag = li_tag.find("ul")
-    contract_type = extract_li_value(ul_tag, "Type de contrat proposé")
-    experience = extract_li_value(ul_tag, "Expérience requise")
-    sector = extract_li_value(ul_tag, "Secteur d'activité")
+    contract_type = extract_li_strong(ul_tag, "Contrat proposé").strip().lstrip(":").strip()
+    experience    = extract_li_strong(ul_tag, "Niveau d'expérience").strip().lstrip(":").strip()
+    region        = extract_li_strong(ul_tag, "Région de").strip().lstrip(":").strip()
+    skills        = extract_li_strong(ul_tag, "Compétences clés").strip().lstrip(":").strip()
+
+    if not is_data_related(title) and not is_data_related(skills):
+            return None
 
     if "-" in contract_type:
         contract_type = contract_type.split("-")[0].strip()
@@ -94,18 +81,17 @@ def parse_offer(li_tag):
     return {
         "title": title,
         "company": company,
-        "location": location,
+        "location": region,
         "contract_type": contract_type,
         "experience": experience,
         "description": description,
-        "skills": sector,
-        "source": "rekrute",
+        "skills": skills,
+        "source": "emploi.ma",
         "url": url,
         "date_posted": date_posted,
     }
 
-
-def scrape_rekrute(max_pages=5):
+def scrape_emploima(max_pages=5):
     all_offers = []
     seen_urls = set()
 
@@ -113,10 +99,11 @@ def scrape_rekrute(max_pages=5):
     "data", "python", "business+intelligence", "machine+learning",
     "power+bi", "sql", "analytique", "reporting", "big+data","intelligence+artificielle",
     "data+scientist", "data+analyst"
-    ]  
+    ]
+
     for keyword in SEARCH_KEYWORDS:
-        for page in range(1, max_pages + 1):
-            url = f"{BASE_URL}/offres.html?p={page}&s=1&o=1&keyword={keyword}&st=d"
+        for page in range(0, max_pages):
+            url = f"{BASE_URL}/recherche-jobs-maroc/{keyword}?page={page}"
             print(f"📄 Page {page} : {url}")
 
             try:
@@ -127,7 +114,7 @@ def scrape_rekrute(max_pages=5):
                     break
 
                 soup = BeautifulSoup(response.text, "html.parser")
-                blocks = soup.find_all("li", class_="post-id")
+                blocks = soup.find_all("div", class_="card-job-detail")
 
                 if not blocks:
                     print(f"ℹ️  Plus d'offres à la page {page}.")

@@ -7,6 +7,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from scraper.rekrute import scrape_rekrute
+from scraper.emploima import scrape_emploima
 from database.db_handler import save_offers, load_offers, count_offers
 
 DB_PATH = os.path.join(ROOT, "data", "jobs.db")
@@ -94,7 +95,7 @@ top_city_short = top_city.split(",")[0].strip()
 st.markdown("""
 <div class="nav">
   <div class="nav-logo">DataJobs <span class="dot">·</span> Maroc</div>
-  <div class="nav-status"><div class="nav-dot"></div>Live · Rekrute.com</div>
+  <div class="nav-status"><div class="nav-dot"></div>Live · Rekrute & Emploi.ma</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -125,7 +126,7 @@ st.markdown(f"""
     Marché Data · Maroc · 2025
   </div>
   <h1 class="hero-h1">Toutes les offres<br><em>Data, IA &amp; BI</em><br>en un seul endroit.</h1>
-  <p class="hero-desc">Agrégateur d'offres en temps réel scrappées depuis Rekrute.com.
+  <p class="hero-desc">Agrégateur d'offres en temps réel scrappées depuis Rekrute.com &amp; Emploi.ma.
   Analysez les tendances, filtrez par ville ou contrat, et identifiez les entreprises
   qui recrutent dans la Data au Maroc.</p>
 </div>
@@ -170,7 +171,7 @@ col_btn, col_status = st.columns([1, 4])
 with col_btn:
     if st.button("↻  Actualiser les offres"):
         with st.spinner("Scraping en cours…"):
-            offers = scrape_rekrute(max_pages=10)
+            offers = scrape_rekrute(max_pages=5) + scrape_emploima(max_pages=5)
             new    = save_offers(offers, DB_PATH)
             st.success(f"{new} nouvelles offres ajoutées.")
             st.rerun()
@@ -300,7 +301,7 @@ for _, row in filtered.iterrows():
     co_block = f'<div class="job-company">{company}</div>' if company and company != "nan" else ""
     st.markdown(f"""
 <div class="job-card">
-  <div class="job-top"><div class="job-title">{title}</div><div class="job-source">Rekrute</div></div>
+  <div class="job-top"><div class="job-title">{title}</div><div class="job-source">{row.get("source", "")}</div></div>
   {co_block}
   <div class="chips">{chips}</div>
   {desc_block}
